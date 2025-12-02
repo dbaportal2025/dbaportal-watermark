@@ -18,11 +18,6 @@ jobs:
 
       - name: Deploy to Lightsail Instance
         uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USERNAME }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          envs: DATABASE_URL,FRONTEND_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET,AWS_REGION
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
@@ -30,54 +25,59 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-        script: |
-          # Create app directory
-          mkdir -p ~/watermark-backend
-          cd ~/watermark-backend
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          envs: DATABASE_URL,FRONTEND_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET,AWS_REGION
+          script: |
+            # Create app directory
+            mkdir -p ~/watermark-backend
+            cd ~/watermark-backend
 
-          # Clone or pull latest code
-          if [ -d ".git" ]; then
-            git pull origin main
-          else
-            git clone https://github.com/${{ github.repository }}.git .
-          fi
+            # Clone or pull latest code
+            if [ -d ".git" ]; then
+              git pull origin main
+            else
+              git clone https://github.com/DrOksusu/watermark.git .
+            fi
 
-          # Navigate to backend folder
-          cd watermark_backend
+            # Navigate to backend folder
+            cd watermark_backend
 
-          # Create .env file from GitHub secrets
-          cat > .env << 'ENVEOF'
-          PORT=4000
-          NODE_ENV=production
-          DATABASE_URL="${DATABASE_URL}"
-          FRONTEND_URL="${FRONTEND_URL}"
-          AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
-          AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
-          AWS_S3_BUCKET="${AWS_S3_BUCKET}"
-          AWS_REGION="${AWS_REGION}"
-          UPLOAD_DIR="./uploads"
-          MAX_FILE_SIZE=10485760
-          ENVEOF
+            # Create .env file from GitHub secrets
+            cat > .env << EOF
+            PORT=4000
+            NODE_ENV=production
+            DATABASE_URL="${DATABASE_URL}"
+            FRONTEND_URL="${FRONTEND_URL}"
+            AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
+            AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+            AWS_S3_BUCKET="${AWS_S3_BUCKET}"
+            AWS_REGION="${AWS_REGION}"
+            UPLOAD_DIR="./uploads"
+            MAX_FILE_SIZE=10485760
+            EOF
 
-          # Install dependencies
-          npm ci --production
+            # Install dependencies
+            npm ci --production
 
-          # Generate Prisma client
-          npx prisma generate
+            # Generate Prisma client
+            npx prisma generate
 
-          # Build TypeScript
-          npm run build
+            # Build TypeScript
+            npm run build
 
-          # Run database migrations
-          npx prisma db push --accept-data-loss
+            # Run database migrations
+            npx prisma db push --accept-data-loss
 
-          # Create uploads directories
-          mkdir -p uploads/images uploads/logos uploads/processed
+            # Create uploads directories
+            mkdir -p uploads/images uploads/logos uploads/processed
 
-          # Restart application with PM2
-          pm2 delete watermark-backend 2>/dev/null || true
-          pm2 start dist/index.js --name watermark-backend
-          pm2 save
+            # Restart application with PM2
+            pm2 delete watermark-backend 2>/dev/null || true
+            pm2 start dist/index.js --name watermark-backend
+            pm2 save
 
       - name: Deployment complete
         run: echo "Backend deployed successfully!"
