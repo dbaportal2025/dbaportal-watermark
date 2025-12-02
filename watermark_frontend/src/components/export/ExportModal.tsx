@@ -87,8 +87,9 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
         function drawDateAndAnnotations() {
           // Draw date text
-          if (dateText) {
-            ctx.font = `${font.size}px ${font.family}`;
+          if (dateText && font) {
+            const fontStyle = String(font.size) + 'px ' + String(font.family);
+            ctx.font = fontStyle;
             ctx.fillStyle = font.color;
             ctx.fillText(dateText, datePosition.x, datePosition.y + font.size);
           }
@@ -155,7 +156,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
               ctx.stroke();
             } else if (annotation.type === 'text' && annotation.text) {
               ctx.setLineDash([]);
-              ctx.font = `${16}px sans-serif`;
+              ctx.font = '16px sans-serif';
               ctx.fillText(annotation.text, annotation.position.x, annotation.position.y + 16);
             }
           });
