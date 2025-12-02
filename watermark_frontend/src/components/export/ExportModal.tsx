@@ -88,6 +88,8 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
         }
 
         function drawDateAndAnnotations() {
+          if (!ctx) return;
+
           if (dateText && font) {
             ctx.font = buildFontString(font.size, font.family);
             ctx.fillStyle = font.color;
