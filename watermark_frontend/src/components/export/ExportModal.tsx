@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Konva from 'konva';
+import JSZip from 'jszip';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ import { useLogoStore } from '@/stores/useLogoStore';
 import { useDateStore } from '@/stores/useDateStore';
 import { useAnnotationStore } from '@/stores/useAnnotationStore';
 import { useExportStore } from '@/stores/useExportStore';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, FileArchive } from 'lucide-react';
 
 interface ExportModalProps {
   open: boolean;
@@ -40,14 +41,32 @@ function buildFontString(size: number, family: string): string {
 export default function ExportModal({ open, onOpenChange, stageRef }: ExportModalProps) {
   const { images } = useImageStore();
   const { logo, position: logoPosition, scale: logoScale, opacity: logoOpacity } = useLogoStore();
-  const { text: dateText, position: datePosition, font } = useDateStore();
+  const { text: dateText, position: datePosition, font, scale: dateScale, opacity: dateOpacity } = useDateStore();
   const { getAnnotations } = useAnnotationStore();
   const { settings, setSettings, isExporting, setIsExporting, progress, setProgress } = useExportStore();
 
   const [currentExporting, setCurrentExporting] = useState('');
 
-  const exportSingleImage = async (
-    imageFile: { id: string; url: string; name: string; width: number; height: number }
+  const loadLogoImage = (): Promise<HTMLImageElement | null> => {
+    return new Promise((resolve) => {
+      if (!logo) {
+        resolve(null);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        console.error('Failed to load logo image');
+        resolve(null);
+      };
+      img.src = logo.url;
+    });
+  };
+
+  const exportSingleImageWithLogo = async (
+    imageFile: { id: string; url: string; name: string; width: number; height: number },
+    preloadedLogo: HTMLImageElement | null,
+    templateWidth: number
   ): Promise<string> => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
@@ -60,117 +79,138 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
       canvas.width = imageFile.width;
       canvas.height = imageFile.height;
 
+      // 템플릿 대비 현재 이미지 크기 비율 계산
+      const sizeRatio = imageFile.width / templateWidth;
+
       const mainImg = new Image();
-      mainImg.crossOrigin = 'anonymous';
-      mainImg.src = imageFile.url;
+
+      mainImg.onerror = () => {
+        console.error('Failed to load image:', imageFile.name);
+        resolve('');
+      };
 
       mainImg.onload = () => {
         ctx.drawImage(mainImg, 0, 0, imageFile.width, imageFile.height);
 
-        if (logo) {
-          const logoImg = new Image();
-          logoImg.crossOrigin = 'anonymous';
-          logoImg.src = logo.url;
-          logoImg.onload = () => {
-            ctx.globalAlpha = logoOpacity;
-            ctx.drawImage(
-              logoImg,
-              logoPosition.x,
-              logoPosition.y,
-              logo.width * logoScale,
-              logo.height * logoScale
-            );
-            ctx.globalAlpha = 1;
-            drawDateAndAnnotations();
-          };
-        } else {
-          drawDateAndAnnotations();
+        // 미리 로드된 로고 이미지 사용 - 비율을 픽셀로 변환 (이미지 크기에 비례)
+        if (preloadedLogo && logo) {
+          ctx.globalAlpha = logoOpacity;
+          const logoX = logoPosition.x * imageFile.width;
+          const logoY = logoPosition.y * imageFile.height;
+          const logoW = logo.width * logoScale * sizeRatio;
+          const logoH = logo.height * logoScale * sizeRatio;
+          ctx.drawImage(
+            preloadedLogo,
+            logoX,
+            logoY,
+            logoW,
+            logoH
+          );
+          ctx.globalAlpha = 1;
         }
 
-        function drawDateAndAnnotations() {
-          if (!ctx) return;
+        // 날짜 텍스트 그리기 - 비율을 픽셀로 변환 (이미지 크기에 비례)
+        if (dateText && font) {
+          ctx.globalAlpha = dateOpacity;
+          const scaledFontSize = font.size * dateScale * sizeRatio;
+          ctx.font = buildFontString(scaledFontSize, font.family);
+          ctx.fillStyle = font.color;
+          const dateX = datePosition.x * imageFile.width;
+          const dateY = datePosition.y * imageFile.height;
+          ctx.fillText(dateText, dateX, dateY + scaledFontSize);
+          ctx.globalAlpha = 1;
+        }
 
-          if (dateText && font) {
-            ctx.font = buildFontString(font.size, font.family);
-            ctx.fillStyle = font.color;
-            ctx.fillText(dateText, datePosition.x, datePosition.y + font.size);
+        // 주석 그리기
+        const imageAnnotations = getAnnotations(imageFile.id);
+        imageAnnotations.forEach((annotation) => {
+          ctx.strokeStyle = annotation.style.color;
+          ctx.lineWidth = annotation.style.thickness;
+          ctx.fillStyle = annotation.style.color;
+
+          if (annotation.style.lineStyle === 'dashed') {
+            ctx.setLineDash([10, 5]);
+          } else {
+            ctx.setLineDash([]);
           }
 
-          const imageAnnotations = getAnnotations(imageFile.id);
-          imageAnnotations.forEach((annotation) => {
-            ctx.strokeStyle = annotation.style.color;
-            ctx.lineWidth = annotation.style.thickness;
-            ctx.fillStyle = annotation.style.color;
+          if (annotation.type === 'box' || annotation.type === 'dashed-box') {
+            const radius = annotation.style.borderRadius;
+            const ax = annotation.position.x;
+            const ay = annotation.position.y;
+            const aw = annotation.size.width;
+            const ah = annotation.size.height;
 
-            if (annotation.style.lineStyle === 'dashed') {
-              ctx.setLineDash([10, 5]);
+            if (radius > 0) {
+              ctx.beginPath();
+              ctx.moveTo(ax + radius, ay);
+              ctx.lineTo(ax + aw - radius, ay);
+              ctx.quadraticCurveTo(ax + aw, ay, ax + aw, ay + radius);
+              ctx.lineTo(ax + aw, ay + ah - radius);
+              ctx.quadraticCurveTo(ax + aw, ay + ah, ax + aw - radius, ay + ah);
+              ctx.lineTo(ax + radius, ay + ah);
+              ctx.quadraticCurveTo(ax, ay + ah, ax, ay + ah - radius);
+              ctx.lineTo(ax, ay + radius);
+              ctx.quadraticCurveTo(ax, ay, ax + radius, ay);
+              ctx.closePath();
+              ctx.stroke();
             } else {
-              ctx.setLineDash([]);
+              ctx.strokeRect(ax, ay, aw, ah);
             }
+          } else if (annotation.type === 'arrow' && annotation.points) {
+            const pts = annotation.points;
+            const dx = pts[2];
+            const dy = pts[3];
+            const endX = annotation.position.x + dx;
+            const endY = annotation.position.y + dy;
 
-            if (annotation.type === 'box' || annotation.type === 'dashed-box') {
-              const radius = annotation.style.borderRadius;
-              const ax = annotation.position.x;
-              const ay = annotation.position.y;
-              const aw = annotation.size.width;
-              const ah = annotation.size.height;
+            ctx.beginPath();
+            ctx.moveTo(annotation.position.x, annotation.position.y);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
 
-              if (radius > 0) {
-                ctx.beginPath();
-                ctx.moveTo(ax + radius, ay);
-                ctx.lineTo(ax + aw - radius, ay);
-                ctx.quadraticCurveTo(ax + aw, ay, ax + aw, ay + radius);
-                ctx.lineTo(ax + aw, ay + ah - radius);
-                ctx.quadraticCurveTo(ax + aw, ay + ah, ax + aw - radius, ay + ah);
-                ctx.lineTo(ax + radius, ay + ah);
-                ctx.quadraticCurveTo(ax, ay + ah, ax, ay + ah - radius);
-                ctx.lineTo(ax, ay + radius);
-                ctx.quadraticCurveTo(ax, ay, ax + radius, ay);
-                ctx.closePath();
-                ctx.stroke();
-              } else {
-                ctx.strokeRect(ax, ay, aw, ah);
-              }
-            } else if (annotation.type === 'arrow' && annotation.points) {
-              const pts = annotation.points;
-              const dx = pts[2];
-              const dy = pts[3];
-              const endX = annotation.position.x + dx;
-              const endY = annotation.position.y + dy;
+            const angle = Math.atan2(dy, dx);
+            const headLength = 15;
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(
+              endX - headLength * Math.cos(angle - Math.PI / 6),
+              endY - headLength * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(
+              endX - headLength * Math.cos(angle + Math.PI / 6),
+              endY - headLength * Math.sin(angle + Math.PI / 6)
+            );
+            ctx.stroke();
+          } else if (annotation.type === 'text' && annotation.text) {
+            ctx.setLineDash([]);
+            ctx.font = '16px sans-serif';
+            ctx.fillText(annotation.text, annotation.position.x, annotation.position.y + 16);
+          }
+        });
 
-              ctx.beginPath();
-              ctx.moveTo(annotation.position.x, annotation.position.y);
-              ctx.lineTo(endX, endY);
-              ctx.stroke();
-
-              const angle = Math.atan2(dy, dx);
-              const headLength = 15;
-              ctx.beginPath();
-              ctx.moveTo(endX, endY);
-              ctx.lineTo(
-                endX - headLength * Math.cos(angle - Math.PI / 6),
-                endY - headLength * Math.sin(angle - Math.PI / 6)
-              );
-              ctx.moveTo(endX, endY);
-              ctx.lineTo(
-                endX - headLength * Math.cos(angle + Math.PI / 6),
-                endY - headLength * Math.sin(angle + Math.PI / 6)
-              );
-              ctx.stroke();
-            } else if (annotation.type === 'text' && annotation.text) {
-              ctx.setLineDash([]);
-              ctx.font = '16px sans-serif';
-              ctx.fillText(annotation.text, annotation.position.x, annotation.position.y + 16);
-            }
-          });
-
-          const mimeType = settings.format === 'png' ? 'image/png' : 'image/jpeg';
-          const quality = settings.quality / 100;
-          const dataUrl = canvas.toDataURL(mimeType, quality);
-          resolve(dataUrl);
-        }
+        const mimeType = settings.format === 'png' ? 'image/png' : 'image/jpeg';
+        const quality = settings.quality / 100;
+        const dataUrl = canvas.toDataURL(mimeType, quality);
+        resolve(dataUrl);
       };
+
+      mainImg.src = imageFile.url;
     });
+  };
+
+  // Data URL을 Blob으로 변환하는 헬퍼 함수
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
   };
 
   const handleExport = async () => {
@@ -180,25 +220,43 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
     setProgress(0);
 
     try {
+      // 로고 이미지를 미리 한 번만 로드
+      const preloadedLogo = await loadLogoImage();
+      // 첫 번째 이미지(템플릿)의 너비를 기준으로 사용
+      const templateWidth = images[0].width;
+
+      // ZIP 파일 생성
+      const zip = new JSZip();
+      const extension = settings.format === 'png' ? 'png' : 'jpg';
+
       for (let i = 0; i < images.length; i++) {
         const image = images[i];
         setCurrentExporting(image.name);
         setProgress(Math.round(((i + 1) / images.length) * 100));
 
-        const dataUrl = await exportSingleImage(image);
+        const dataUrl = await exportSingleImageWithLogo(image, preloadedLogo, templateWidth);
         if (dataUrl) {
-          const link = document.createElement('a');
-          const extension = settings.format === 'png' ? 'png' : 'jpg';
-          const filename = settings.filenamePrefix + (i + 1).toString() + '.' + extension;
-          link.download = filename;
-          link.href = dataUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          // 원본 파일명에서 확장자 제거
+          const originalName = image.name.replace(/\.[^/.]+$/, '');
+          const filename = originalName + settings.filenamePrefix + '.' + extension;
 
-          await new Promise((r) => setTimeout(r, 300));
+          // Data URL을 Blob으로 변환하여 ZIP에 추가
+          const blob = dataUrlToBlob(dataUrl);
+          zip.file(filename, blob);
         }
       }
+
+      // ZIP 파일 생성 및 다운로드
+      setCurrentExporting('ZIP 파일 생성 중...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = 'watermark_images.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
 
       onOpenChange(false);
     } catch (error) {
@@ -224,14 +282,14 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>파일명 접두어</Label>
+            <Label>파일명 접미어</Label>
             <Input
               value={settings.filenamePrefix}
               onChange={(e) => setSettings({ filenamePrefix: e.target.value })}
-              placeholder="예: watermark_"
+              placeholder="예: _watermark"
             />
             <p className="text-xs text-muted-foreground">
-              저장될 파일명: {settings.filenamePrefix}1.{settings.format}, {settings.filenamePrefix}2.{settings.format}, ...
+              저장될 파일명: 원본파일명{settings.filenamePrefix}.{settings.format}
             </p>
           </div>
 
@@ -265,9 +323,15 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             />
           </div>
 
-          <div className="rounded-lg bg-muted p-3">
-            <p className="text-sm">
-              <span className="font-medium">{images.length}개</span>의 이미지가 저장됩니다
+          <div className="rounded-lg bg-muted p-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <FileArchive className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm">
+                <span className="font-medium">{images.length}개</span>의 이미지가 ZIP 파일로 저장됩니다
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              파일명: watermark_images.zip
             </p>
           </div>
 
@@ -300,8 +364,8 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
               </>
             ) : (
               <>
-                <Download className="h-4 w-4 mr-2" />
-                저장하기
+                <FileArchive className="h-4 w-4 mr-2" />
+                ZIP으로 저장
               </>
             )}
           </Button>

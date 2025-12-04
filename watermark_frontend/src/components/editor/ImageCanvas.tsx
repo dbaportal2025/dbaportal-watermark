@@ -28,7 +28,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
   const { images, selectedImageId } = useImageStore();
   const { logo, position: logoPosition, scale: logoScale, opacity: logoOpacity, setPosition: setLogoPosition } = useLogoStore();
-  const { text: dateText, position: datePosition, font, setPosition: setDatePosition } = useDateStore();
+  const { text: dateText, position: datePosition, font, scale: dateScale, opacity: dateOpacity, setPosition: setDatePosition } = useDateStore();
   const {
     selectedTool,
     toolSettings,
@@ -38,9 +38,11 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     removeAnnotation,
     getAnnotations,
     setSelectedAnnotation,
+    setTool,
   } = useAnnotationStore();
 
   const selectedImage = images.find((img) => img.id === selectedImageId);
+  const templateImage = images[0]; // 첫 번째 이미지가 템플릿
   const annotations = selectedImageId ? getAnnotations(selectedImageId) : [];
 
   // Load main image
@@ -54,16 +56,20 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     }
   }, [selectedImage]);
 
-  // Load logo image
+  // Load logo image - selectedImage도 의존성에 추가하여 이미지 전환 시 로고 유지
   useEffect(() => {
     if (logo) {
       const img = new window.Image();
-      img.src = logo.url;
       img.onload = () => setLogoImage(img);
+      img.onerror = () => {
+        console.error('Failed to load logo image');
+        setLogoImage(null);
+      };
+      img.src = logo.url;
     } else {
       setLogoImage(null);
     }
-  }, [logo]);
+  }, [logo, selectedImage]);
 
   // Calculate scale and container size
   useEffect(() => {
@@ -138,13 +144,14 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
               },
               text,
             });
+            setTool(null); // 도구 사용 후 자동 해제
           }
           setIsDrawing(false);
           setDrawStart(null);
         }
       }
     },
-    [selectedTool, selectedImageId, scale, toolSettings, addAnnotation, setSelectedAnnotation]
+    [selectedTool, selectedImageId, scale, toolSettings, addAnnotation, setSelectedAnnotation, setTool]
   );
 
   const handleStageMouseMove = useCallback(
@@ -203,31 +210,36 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
     if (tempAnnotation) {
       addAnnotation(selectedImageId, tempAnnotation as Omit<Annotation, 'id'>);
+      setTool(null); // 도구 사용 후 자동 해제
     }
 
     setIsDrawing(false);
     setDrawStart(null);
     setTempAnnotation(null);
-  }, [isDrawing, drawStart, selectedTool, selectedImageId, tempAnnotation, addAnnotation]);
+  }, [isDrawing, drawStart, selectedTool, selectedImageId, tempAnnotation, addAnnotation, setTool]);
 
   const handleLogoDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
+      if (!mainImage) return;
+      // 비율(0~1)로 변환하여 저장
       setLogoPosition({
-        x: e.target.x() / scale,
-        y: e.target.y() / scale,
+        x: e.target.x() / scale / mainImage.width,
+        y: e.target.y() / scale / mainImage.height,
       });
     },
-    [scale, setLogoPosition]
+    [scale, mainImage, setLogoPosition]
   );
 
   const handleDateDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
+      if (!mainImage) return;
+      // 비율(0~1)로 변환하여 저장
       setDatePosition({
-        x: e.target.x() / scale,
-        y: e.target.y() / scale,
+        x: e.target.x() / scale / mainImage.width,
+        y: e.target.y() / scale / mainImage.height,
       });
     },
-    [scale, setDatePosition]
+    [scale, mainImage, setDatePosition]
   );
 
   const handleAnnotationDragEnd = useCallback(
@@ -372,33 +384,42 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
             height={mainImage.height * scale}
           />
 
-          {/* Logo */}
-          {logoImage && (
-            <KonvaImage
-              image={logoImage}
-              x={logoPosition.x * scale}
-              y={logoPosition.y * scale}
-              width={logoImage.width * logoScale * scale}
-              height={logoImage.height * logoScale * scale}
-              opacity={logoOpacity}
-              draggable={!selectedTool}
-              onDragEnd={handleLogoDragEnd}
-            />
-          )}
+          {/* Logo - 비율을 픽셀로 변환 (이미지 크기에 비례) */}
+          {logoImage && (() => {
+            // 템플릿 대비 현재 이미지 크기 비율 계산
+            const sizeRatio = templateImage ? mainImage.width / templateImage.width : 1;
+            return (
+              <KonvaImage
+                image={logoImage}
+                x={logoPosition.x * mainImage.width * scale}
+                y={logoPosition.y * mainImage.height * scale}
+                width={logoImage.width * logoScale * sizeRatio * scale}
+                height={logoImage.height * logoScale * sizeRatio * scale}
+                opacity={logoOpacity}
+                draggable={!selectedTool}
+                onDragEnd={handleLogoDragEnd}
+              />
+            );
+          })()}
 
-          {/* Date Text */}
-          {dateText && (
-            <Text
-              text={dateText}
-              x={datePosition.x * scale}
-              y={datePosition.y * scale}
-              fontSize={font.size * scale}
-              fontFamily={font.family}
-              fill={font.color}
-              draggable={!selectedTool}
-              onDragEnd={handleDateDragEnd}
-            />
-          )}
+          {/* Date Text - 비율을 픽셀로 변환 (이미지 크기에 비례) */}
+          {dateText && (() => {
+            // 템플릿 대비 현재 이미지 크기 비율 계산
+            const sizeRatio = templateImage ? mainImage.width / templateImage.width : 1;
+            return (
+              <Text
+                text={dateText}
+                x={datePosition.x * mainImage.width * scale}
+                y={datePosition.y * mainImage.height * scale}
+                fontSize={font.size * dateScale * sizeRatio * scale}
+                fontFamily={font.family}
+                fill={font.color}
+                opacity={dateOpacity}
+                draggable={!selectedTool}
+                onDragEnd={handleDateDragEnd}
+              />
+            );
+          })()}
 
           {/* Annotations */}
           {annotations.map(renderAnnotation)}

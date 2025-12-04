@@ -57,7 +57,7 @@ export default function ImageUploader() {
             </>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">JPG, PNG 지원</p>
+        <p className="text-xs text-muted-foreground">JPG, PNG (여러 장 선택 가능)</p>
       </div>
     </div>
   );

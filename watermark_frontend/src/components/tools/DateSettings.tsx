@@ -30,7 +30,7 @@ const FONT_COLORS = [
 ];
 
 export default function DateSettings() {
-  const { text, font, setText, setFont } = useDateStore();
+  const { text, font, scale, opacity, setText, setFont, setScale, setOpacity } = useDateStore();
 
   return (
     <Card>
@@ -80,6 +80,38 @@ export default function DateSettings() {
             min={12}
             max={72}
             step={1}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <Label className="text-xs">크기</Label>
+            <span className="text-xs text-muted-foreground">
+              {Math.round(scale * 100)}%
+            </span>
+          </div>
+          <Slider
+            value={[scale]}
+            onValueChange={([value]) => setScale(value)}
+            min={0.1}
+            max={3}
+            step={0.05}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <Label className="text-xs">투명도</Label>
+            <span className="text-xs text-muted-foreground">
+              {Math.round(opacity * 100)}%
+            </span>
+          </div>
+          <Slider
+            value={[opacity]}
+            onValueChange={([value]) => setOpacity(value)}
+            min={0.1}
+            max={1}
+            step={0.05}
           />
         </div>
 

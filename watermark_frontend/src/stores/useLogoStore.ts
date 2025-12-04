@@ -27,7 +27,8 @@ const loadImage = (file: File): Promise<{ width: number; height: number; url: st
 
 export const useLogoStore = create<LogoStore>((set, get) => ({
   logo: null,
-  position: { x: 20, y: 20 },
+  // 위치를 비율(0~1)로 저장 - 이미지 크기에 비례하여 적용
+  position: { x: 0.02, y: 0.02 },
   scale: 1,
   opacity: 1,
 
