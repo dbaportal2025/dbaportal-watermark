@@ -3,16 +3,15 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies for native modules (sharp)
-# node-addon-api is required for building sharp from source
-RUN apk add --no-cache python3 make g++ vips-dev pkgconfig
+# Install dependencies for native modules
+RUN apk add --no-cache python3 make g++
 
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Add node-addon-api and node-gyp for sharp build, then install dependencies
-RUN npm install node-addon-api node-gyp && npm ci
+# Install dependencies - sharp will use prebuilt binary for linuxmusl-x64
+RUN npm ci --include=dev
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -30,9 +29,6 @@ RUN npm prune --production
 FROM node:20-alpine AS production
 
 WORKDIR /app
-
-# Install runtime dependencies for sharp (vips)
-RUN apk add --no-cache vips
 
 # Copy package files
 COPY package*.json ./
