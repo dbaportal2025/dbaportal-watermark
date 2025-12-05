@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: ap-northeast-2
+  AWS_REGION: us-east-1
   ECR_REPOSITORY: watermark-api
 
 jobs:
@@ -62,7 +62,7 @@ jobs:
           envs: ECR_REGISTRY,DATABASE_URL,FRONTEND_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET
           script: |
             # ECR 로그인
-            aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
 
             # 최신 이미지 pull
             docker pull $ECR_REGISTRY/watermark-api:latest
@@ -87,7 +87,7 @@ jobs:
               -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
               -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
               -e "AWS_S3_BUCKET=${AWS_S3_BUCKET}" \
-              -e "AWS_REGION=ap-northeast-2" \
+              -e "AWS_REGION=us-east-1" \
               -e "UPLOAD_DIR=./uploads" \
               -e "MAX_FILE_SIZE=10485760" \
               $ECR_REGISTRY/watermark-api:latest
