@@ -16,6 +16,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
   'https://watermark-steel.vercel.app',
+  'https://watermark.koco.me',
+  'http://watermark.koco.me',
   FRONTEND_URL,
 ].filter((origin, index, self) => self.indexOf(origin) === index); // Remove duplicates
 
