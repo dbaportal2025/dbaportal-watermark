@@ -6,6 +6,7 @@ import ImageUploader from '@/components/tools/ImageUploader';
 import ImageList from '@/components/tools/ImageList';
 import LogoSettings from '@/components/tools/LogoSettings';
 import DateSettings from '@/components/tools/DateSettings';
+import PresetSettings from '@/components/tools/PresetSettings';
 import AnnotationTools from '@/components/tools/AnnotationTools';
 
 export default function LeftPanel() {
@@ -25,6 +26,7 @@ export default function LeftPanel() {
           </TabsContent>
 
           <TabsContent value="watermark" className="mt-0 p-4 space-y-4">
+            <PresetSettings />
             <LogoSettings />
             <DateSettings />
           </TabsContent>
