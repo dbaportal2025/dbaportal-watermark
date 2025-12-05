@@ -11,7 +11,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Install all dependencies (including devDependencies for building)
-RUN npm ci
+# Use retry logic for npm registry intermittent failures
+RUN npm ci || npm ci || npm ci
 
 # Generate Prisma client
 RUN npx prisma generate
