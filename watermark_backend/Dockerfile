@@ -11,8 +11,8 @@ RUN apk add --no-cache python3 make g++ vips-dev pkgconfig
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Add node-addon-api for sharp build and install dependencies
-RUN npm install node-addon-api && npm ci
+# Add node-addon-api and node-gyp for sharp build, then install dependencies
+RUN npm install node-addon-api node-gyp && npm ci
 
 # Generate Prisma client
 RUN npx prisma generate
