@@ -1,5 +1,5 @@
 # Build stage - use Alpine for smaller build
-FROM node:20-alpine AS builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY . .
 RUN npm run build
 
 # Production stage - use Debian slim for OpenSSL 1.1 compatibility
-FROM node:20-slim AS production
+FROM node:18-slim AS production
 
 WORKDIR /app
 
