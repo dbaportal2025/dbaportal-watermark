@@ -30,7 +30,7 @@ export default function LogoSettings() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // 입력한 이름이 이미 라이브러리에 있는지 확인
-  const isDuplicateName = logoName.trim() && logos.some(l => l.name.toLowerCase() === logoName.trim().toLowerCase());
+  const isDuplicateName = !!(logoName.trim() && logos.some(l => l.name.toLowerCase() === logoName.trim().toLowerCase()));
 
   const handleSaveToLibrary = async () => {
     if (!logo?.file || isDuplicateName) return;
