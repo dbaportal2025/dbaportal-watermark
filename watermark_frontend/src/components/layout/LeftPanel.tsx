@@ -12,15 +12,15 @@ import AnnotationTools from '@/components/tools/AnnotationTools';
 
 export default function LeftPanel() {
   return (
-    <div className="w-80 border-r bg-background flex flex-col h-full">
-      <Tabs defaultValue="images" className="flex-1 flex flex-col">
-        <TabsList className="w-full justify-start rounded-none border-b px-2">
+    <div className="w-80 border-r bg-background flex flex-col h-full overflow-hidden">
+      <Tabs defaultValue="images" className="flex-1 flex flex-col min-h-0">
+        <TabsList className="w-full justify-start rounded-none border-b px-2 shrink-0">
           <TabsTrigger value="images">이미지</TabsTrigger>
           <TabsTrigger value="watermark">워터마크</TabsTrigger>
           <TabsTrigger value="tools">도구</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <TabsContent value="images" className="mt-0 p-4 space-y-4">
             <ImageUploader />
             <ImageList />
