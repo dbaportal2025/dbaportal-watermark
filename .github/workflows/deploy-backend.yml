@@ -74,21 +74,20 @@ jobs:
             docker stop watermark-api 2>/dev/null || true
             docker rm watermark-api 2>/dev/null || true
 
-            # 새 컨테이너 실행
+            # 새 컨테이너 실행 (S3 스토리지 사용)
             docker run -d \
               --name watermark-api \
               --restart unless-stopped \
               -p 4000:4000 \
-              -v ~/watermark-data/uploads:/app/uploads \
               -e NODE_ENV=production \
               -e PORT=4000 \
               -e "DATABASE_URL=${DATABASE_URL}" \
               -e "FRONTEND_URL=${FRONTEND_URL}" \
+              -e "USE_S3=true" \
               -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
               -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
               -e "AWS_S3_BUCKET=${AWS_S3_BUCKET}" \
-              -e "AWS_REGION=us-east-1" \
-              -e "UPLOAD_DIR=./uploads" \
+              -e "AWS_REGION=ap-northeast-2" \
               -e "MAX_FILE_SIZE=10485760" \
               $ECR_REGISTRY/watermark-api:latest
 

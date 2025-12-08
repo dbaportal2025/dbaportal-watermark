@@ -2,7 +2,8 @@ import prisma from '../config/database';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
-import { UPLOAD_PATHS } from '../config/multer';
+import { UPLOAD_PATHS, USE_S3 } from '../config/multer';
+import { uploadBufferToS3, deleteFromS3, getS3KeyFromUrl } from '../config/s3';
 
 export interface ImageData {
   id: string;
@@ -17,13 +18,36 @@ export interface ImageData {
 
 export const imageService = {
   async createImage(file: Express.Multer.File): Promise<ImageData> {
-    const metadata = await sharp(file.path).metadata();
+    let metadata;
+    let url: string;
+    let filename: string;
+
+    if (USE_S3) {
+      // S3 업로드 (메모리 스토리지 사용)
+      const buffer = file.buffer;
+      metadata = await sharp(buffer).metadata();
+
+      const s3Result = await uploadBufferToS3(
+        buffer,
+        file.originalname,
+        'images',
+        file.mimetype
+      );
+
+      url = s3Result.url;
+      filename = s3Result.filename;
+    } else {
+      // 로컬 저장소 사용 (디스크 스토리지)
+      metadata = await sharp(file.path).metadata();
+      filename = file.filename;
+      url = `/uploads/images/${filename}`;
+    }
 
     const image = await prisma.image.create({
       data: {
         originalName: file.originalname,
-        filename: file.filename,
-        url: `/uploads/images/${file.filename}`,
+        filename,
+        url,
         width: metadata.width || 0,
         height: metadata.height || 0,
         size: file.size,
@@ -68,10 +92,18 @@ export const imageService = {
       return false;
     }
 
-    // Delete file from disk
-    const filePath = path.join(UPLOAD_PATHS.images, image.filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (USE_S3) {
+      // S3에서 삭제
+      const s3Key = getS3KeyFromUrl(image.url);
+      if (s3Key) {
+        await deleteFromS3(s3Key);
+      }
+    } else {
+      // 로컬 파일 삭제
+      const filePath = path.join(UPLOAD_PATHS.images, image.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     // Delete from database
@@ -87,9 +119,16 @@ export const imageService = {
 
     // Delete all files
     for (const image of images) {
-      const filePath = path.join(UPLOAD_PATHS.images, image.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      if (USE_S3) {
+        const s3Key = getS3KeyFromUrl(image.url);
+        if (s3Key) {
+          await deleteFromS3(s3Key);
+        }
+      } else {
+        const filePath = path.join(UPLOAD_PATHS.images, image.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
       }
     }
 

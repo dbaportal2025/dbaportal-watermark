@@ -1,38 +1,34 @@
 import multer from 'multer';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760', 10); // 10MB
 
-// Ensure upload directories exist
-const dirs = ['images', 'logos', 'processed'];
-dirs.forEach((dir) => {
-  const fullPath = path.join(UPLOAD_DIR, dir);
-  if (!fs.existsSync(fullPath)) {
-    fs.mkdirSync(fullPath, { recursive: true });
-  }
-});
+// S3 사용 여부 (환경변수로 제어)
+export const USE_S3 = process.env.USE_S3 === 'true';
 
-// Storage configuration for images
-const imageStorage = multer.diskStorage({
+// 로컬 저장소 사용 시 디렉토리 생성
+if (!USE_S3) {
+  const dirs = ['images', 'logos', 'processed'];
+  dirs.forEach((dir) => {
+    const fullPath = path.join(UPLOAD_DIR, dir);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+    }
+  });
+}
+
+// 메모리 스토리지 (S3 업로드용)
+const memoryStorage = multer.memoryStorage();
+
+// 디스크 스토리지 (로컬 저장용 - 폴백)
+const createDiskStorage = (folder: string) => multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, path.join(UPLOAD_DIR, 'images'));
+    cb(null, path.join(UPLOAD_DIR, folder));
   },
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const filename = `${uuidv4()}${ext}`;
-    cb(null, filename);
-  },
-});
-
-// Storage configuration for logos
-const logoStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, path.join(UPLOAD_DIR, 'logos'));
-  },
-  filename: (_req, file, cb) => {
+    const { v4: uuidv4 } = require('uuid');
     const ext = path.extname(file.originalname);
     const filename = `${uuidv4()}${ext}`;
     cb(null, filename);
@@ -53,9 +49,9 @@ const imageFileFilter = (
   }
 };
 
-// Multer instances
+// Multer instances - S3 사용 시 메모리 스토리지, 아니면 디스크 스토리지
 export const uploadImages = multer({
-  storage: imageStorage,
+  storage: USE_S3 ? memoryStorage : createDiskStorage('images'),
   fileFilter: imageFileFilter,
   limits: {
     fileSize: MAX_FILE_SIZE,
@@ -63,7 +59,7 @@ export const uploadImages = multer({
 });
 
 export const uploadLogo = multer({
-  storage: logoStorage,
+  storage: USE_S3 ? memoryStorage : createDiskStorage('logos'),
   fileFilter: imageFileFilter,
   limits: {
     fileSize: MAX_FILE_SIZE,

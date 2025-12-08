@@ -2,7 +2,8 @@ import prisma from '../config/database';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
-import { UPLOAD_PATHS } from '../config/multer';
+import { UPLOAD_PATHS, USE_S3 } from '../config/multer';
+import { uploadBufferToS3, deleteFromS3, getS3KeyFromUrl } from '../config/s3';
 
 export interface LogoData {
   id: string;
@@ -16,7 +17,30 @@ export interface LogoData {
 
 export const logoService = {
   async createLogo(file: Express.Multer.File, customName?: string): Promise<LogoData> {
-    const metadata = await sharp(file.path).metadata();
+    let metadata;
+    let url: string;
+    let filename: string;
+
+    if (USE_S3) {
+      // S3 업로드 (메모리 스토리지 사용)
+      const buffer = file.buffer;
+      metadata = await sharp(buffer).metadata();
+
+      const s3Result = await uploadBufferToS3(
+        buffer,
+        file.originalname,
+        'logos',
+        file.mimetype
+      );
+
+      url = s3Result.url;
+      filename = s3Result.filename;
+    } else {
+      // 로컬 저장소 사용 (디스크 스토리지)
+      metadata = await sharp(file.path).metadata();
+      filename = file.filename;
+      url = `/uploads/logos/${filename}`;
+    }
 
     // Deactivate all existing logos
     await prisma.logo.updateMany({
@@ -30,8 +54,8 @@ export const logoService = {
     const logo = await prisma.logo.create({
       data: {
         name: logoName,
-        filename: file.filename,
-        url: `/uploads/logos/${file.filename}`,
+        filename,
+        url,
         width: metadata.width || 0,
         height: metadata.height || 0,
         isActive: true,
@@ -87,10 +111,18 @@ export const logoService = {
       return false;
     }
 
-    // Delete file from disk
-    const filePath = path.join(UPLOAD_PATHS.logos, logo.filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (USE_S3) {
+      // S3에서 삭제
+      const s3Key = getS3KeyFromUrl(logo.url);
+      if (s3Key) {
+        await deleteFromS3(s3Key);
+      }
+    } else {
+      // 로컬 파일 삭제
+      const filePath = path.join(UPLOAD_PATHS.logos, logo.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     // Delete from database
