@@ -33,6 +33,12 @@ export async function uploadBufferToS3(
   const filename = `${uuidv4()}${ext}`;
   const key = `watermark/${folder}/${filename}`;
 
+  console.log('=== S3 Upload ===');
+  console.log('Bucket:', BUCKET_NAME);
+  console.log('Key:', key);
+  console.log('ContentType:', contentType);
+  console.log('Buffer size:', buffer.length);
+
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
@@ -40,13 +46,22 @@ export async function uploadBufferToS3(
     ContentType: contentType,
   });
 
-  await s3Client.send(command);
+  try {
+    await s3Client.send(command);
+    console.log('S3 upload successful!');
+  } catch (error) {
+    console.error('S3 upload error:', error);
+    throw error;
+  }
 
-  return {
+  const result = {
     key,
     url: `${S3_BASE_URL}/${key}`,
     filename,
   };
+
+  console.log('S3 result URL:', result.url);
+  return result;
 }
 
 /**

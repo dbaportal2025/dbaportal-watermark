@@ -17,15 +17,33 @@ export interface LogoData {
 
 export const logoService = {
   async createLogo(file: Express.Multer.File, customName?: string): Promise<LogoData> {
+    console.log('=== createLogo called ===');
+    console.log('USE_S3:', USE_S3);
+    console.log('AWS_S3_BUCKET:', process.env.AWS_S3_BUCKET);
+    console.log('File info:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      hasBuffer: !!file.buffer,
+      hasPath: !!file.path,
+    });
+
     let metadata;
     let url: string;
     let filename: string;
 
     if (USE_S3) {
       // S3 업로드 (메모리 스토리지 사용)
+      console.log('Using S3 storage...');
       const buffer = file.buffer;
+
+      if (!buffer) {
+        console.error('ERROR: No buffer in file! This means multer is using disk storage, not memory storage.');
+        throw new Error('File buffer is missing - multer configuration error');
+      }
       metadata = await sharp(buffer).metadata();
 
+      console.log('Uploading to S3...');
       const s3Result = await uploadBufferToS3(
         buffer,
         file.originalname,
@@ -33,6 +51,7 @@ export const logoService = {
         file.mimetype
       );
 
+      console.log('S3 upload result:', s3Result);
       url = s3Result.url;
       filename = s3Result.filename;
     } else {

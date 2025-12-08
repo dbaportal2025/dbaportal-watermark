@@ -228,24 +228,46 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
   const handleLogoDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
-      if (!mainImage) return;
+      if (!mainImage) {
+        console.warn('handleLogoDragEnd: mainImage is null');
+        return;
+      }
       // 비율(0~1)로 변환하여 저장
-      setLogoPosition({
-        x: e.target.x() / scale / mainImage.width,
-        y: e.target.y() / scale / mainImage.height,
+      const newX = e.target.x() / scale / mainImage.width;
+      const newY = e.target.y() / scale / mainImage.height;
+      console.log('handleLogoDragEnd:', {
+        rawX: e.target.x(),
+        rawY: e.target.y(),
+        scale,
+        mainImageWidth: mainImage.width,
+        mainImageHeight: mainImage.height,
+        normalizedX: newX,
+        normalizedY: newY,
       });
+      setLogoPosition({ x: newX, y: newY });
     },
     [scale, mainImage, setLogoPosition]
   );
 
   const handleDateDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
-      if (!mainImage) return;
+      if (!mainImage) {
+        console.warn('handleDateDragEnd: mainImage is null');
+        return;
+      }
       // 비율(0~1)로 변환하여 저장
-      setDatePosition({
-        x: e.target.x() / scale / mainImage.width,
-        y: e.target.y() / scale / mainImage.height,
+      const newX = e.target.x() / scale / mainImage.width;
+      const newY = e.target.y() / scale / mainImage.height;
+      console.log('handleDateDragEnd:', {
+        rawX: e.target.x(),
+        rawY: e.target.y(),
+        scale,
+        mainImageWidth: mainImage.width,
+        mainImageHeight: mainImage.height,
+        normalizedX: newX,
+        normalizedY: newY,
       });
+      setDatePosition({ x: newX, y: newY });
     },
     [scale, mainImage, setDatePosition]
   );

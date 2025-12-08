@@ -29,11 +29,11 @@ export default function LogoSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // 현재 로고가 이미 라이브러리에 있는지 확인
-  const isLogoInLibrary = logo && logos.some(l => l.name === logo.name);
+  // 입력한 이름이 이미 라이브러리에 있는지 확인
+  const isDuplicateName = logoName.trim() && logos.some(l => l.name.toLowerCase() === logoName.trim().toLowerCase());
 
   const handleSaveToLibrary = async () => {
-    if (!logo?.file) return;
+    if (!logo?.file || isDuplicateName) return;
 
     setIsSaving(true);
     const success = await uploadLogo(logo.file, logoName.trim() || logo.name);
@@ -204,9 +204,9 @@ export default function LogoSettings() {
                 />
               </div>
 
-              {isLogoInLibrary && (
-                <p className="text-xs text-amber-600">
-                  같은 이름의 로고가 이미 라이브러리에 있습니다.
+              {isDuplicateName && (
+                <p className="text-xs text-destructive">
+                  &apos;{logoName.trim()}&apos; 이름의 로고가 이미 라이브러리에 있습니다. 다른 이름을 입력해주세요.
                 </p>
               )}
             </div>
@@ -221,7 +221,7 @@ export default function LogoSettings() {
               </Button>
               <Button
                 onClick={handleSaveToLibrary}
-                disabled={isSaving || saveSuccess || !logo?.file}
+                disabled={isSaving || saveSuccess || !logo?.file || isDuplicateName}
               >
                 {saveSuccess ? (
                   <>

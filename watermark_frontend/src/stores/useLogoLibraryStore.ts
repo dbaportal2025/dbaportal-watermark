@@ -167,29 +167,71 @@ async function loadLogoToStore(url: string, name: string): Promise<boolean> {
   try {
     console.log('Loading logo from URL:', url);
 
-    const response = await fetch(url, {
-      mode: 'cors',
-      credentials: 'omit',
+    // Image 객체를 사용하여 로드 (CORS 우회)
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    const loadPromise = new Promise<boolean>((resolve) => {
+      img.onload = async () => {
+        try {
+          // Canvas를 사용하여 이미지를 Blob으로 변환
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            console.error('Failed to get canvas context');
+            resolve(false);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0);
+
+          // Canvas에서 Blob 생성
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              console.error('Failed to create blob from canvas');
+              resolve(false);
+              return;
+            }
+
+            console.log('Logo blob created:', blob.type, blob.size);
+
+            // 파일 확장자 추출
+            const ext = blob.type.split('/')[1] || 'png';
+            const fileName = name.includes('.') ? name : `${name}.${ext}`;
+
+            const file = new File([blob], fileName, { type: blob.type });
+            const logoStore = useLogoStore.getState();
+            await logoStore.setLogo(file);
+
+            console.log('Logo successfully loaded to store');
+            resolve(true);
+          }, 'image/png');
+        } catch (error) {
+          console.error('Error processing loaded image:', error);
+          resolve(false);
+        }
+      };
+
+      img.onerror = (error) => {
+        console.error('Error loading image:', error);
+        resolve(false);
+      };
     });
 
-    if (!response.ok) {
-      console.warn(`Logo file not found: ${response.status} ${response.statusText}`);
-      return false;
-    }
+    // 타임아웃 설정 (10초)
+    const timeoutPromise = new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        console.warn('Logo loading timed out');
+        resolve(false);
+      }, 10000);
+    });
 
-    const blob = await response.blob();
-    console.log('Logo blob loaded:', blob.type, blob.size);
+    img.src = url;
 
-    // 파일 확장자 추출
-    const ext = blob.type.split('/')[1] || 'png';
-    const fileName = name.includes('.') ? name : `${name}.${ext}`;
-
-    const file = new File([blob], fileName, { type: blob.type });
-    const logoStore = useLogoStore.getState();
-    await logoStore.setLogo(file);
-
-    console.log('Logo successfully loaded to store');
-    return true;
+    return await Promise.race([loadPromise, timeoutPromise]);
   } catch (error) {
     console.error('Error loading logo to store:', error);
     return false;

@@ -14,21 +14,26 @@ export interface SettingsData {
   fontFamily: string;
   fontSize: number;
   fontColor: string;
+  dateScale: number;
+  dateOpacity: number;
 }
 
 export interface SettingsInput {
   name?: string;
-  logoPosition?: { x: number; y: number };
+  // 직접 필드로 받기 (프론트엔드와 일치)
+  logoPositionX?: number;
+  logoPositionY?: number;
   logoAnchor?: string;
   logoScale?: number;
   logoOpacity?: number;
-  datePosition?: { x: number; y: number };
+  datePositionX?: number;
+  datePositionY?: number;
   dateFormat?: string;
-  font?: {
-    family?: string;
-    size?: number;
-    color?: string;
-  };
+  fontFamily?: string;
+  fontSize?: number;
+  fontColor?: string;
+  dateScale?: number;
+  dateOpacity?: number;
 }
 
 export const settingsService = {
@@ -64,17 +69,19 @@ export const settingsService = {
     const settings = await prisma.settings.create({
       data: {
         name: input.name || 'custom',
-        logoPositionX: input.logoPosition?.x ?? 20,
-        logoPositionY: input.logoPosition?.y ?? 20,
+        logoPositionX: input.logoPositionX ?? 0.02,
+        logoPositionY: input.logoPositionY ?? 0.02,
         logoAnchor: input.logoAnchor || 'top-left',
-        logoScale: input.logoScale ?? 1,
+        logoScale: input.logoScale ?? 0.3,
         logoOpacity: input.logoOpacity ?? 1,
-        datePositionX: input.datePosition?.x ?? 20,
-        datePositionY: input.datePosition?.y ?? 60,
+        datePositionX: input.datePositionX ?? 0.02,
+        datePositionY: input.datePositionY ?? 0.06,
         dateFormat: input.dateFormat || 'YY.MM',
-        fontFamily: input.font?.family || 'Pretendard',
-        fontSize: input.font?.size || 24,
-        fontColor: input.font?.color || '#FFFFFF',
+        fontFamily: input.fontFamily || 'Pretendard',
+        fontSize: input.fontSize || 24,
+        fontColor: input.fontColor || '#FFFFFF',
+        dateScale: input.dateScale ?? 0.15,
+        dateOpacity: input.dateOpacity ?? 1,
       },
     });
 
@@ -94,17 +101,19 @@ export const settingsService = {
       where: { id },
       data: {
         name: input.name ?? existing.name,
-        logoPositionX: input.logoPosition?.x ?? existing.logoPositionX,
-        logoPositionY: input.logoPosition?.y ?? existing.logoPositionY,
+        logoPositionX: input.logoPositionX ?? existing.logoPositionX,
+        logoPositionY: input.logoPositionY ?? existing.logoPositionY,
         logoAnchor: input.logoAnchor ?? existing.logoAnchor,
         logoScale: input.logoScale ?? existing.logoScale,
         logoOpacity: input.logoOpacity ?? existing.logoOpacity,
-        datePositionX: input.datePosition?.x ?? existing.datePositionX,
-        datePositionY: input.datePosition?.y ?? existing.datePositionY,
+        datePositionX: input.datePositionX ?? existing.datePositionX,
+        datePositionY: input.datePositionY ?? existing.datePositionY,
         dateFormat: input.dateFormat ?? existing.dateFormat,
-        fontFamily: input.font?.family ?? existing.fontFamily,
-        fontSize: input.font?.size ?? existing.fontSize,
-        fontColor: input.font?.color ?? existing.fontColor,
+        fontFamily: input.fontFamily ?? existing.fontFamily,
+        fontSize: input.fontSize ?? existing.fontSize,
+        fontColor: input.fontColor ?? existing.fontColor,
+        dateScale: input.dateScale ?? existing.dateScale,
+        dateOpacity: input.dateOpacity ?? existing.dateOpacity,
       },
     });
 

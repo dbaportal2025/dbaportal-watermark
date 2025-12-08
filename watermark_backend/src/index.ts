@@ -2,10 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
-import routes from './routes';
 
-// Load environment variables
+// Load environment variables FIRST before importing other modules
 dotenv.config();
+
+import routes from './routes';
+import { USE_S3 } from './config/multer';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -75,6 +77,8 @@ app.listen(PORT, () => {
 ╠════════════════════════════════════════════╣
 ║  Port: ${PORT}                               ║
 ║  Environment: ${process.env.NODE_ENV || 'development'}               ║
+║  Storage: ${USE_S3 ? 'AWS S3' : 'Local Disk'}                    ║
+║  S3 Bucket: ${process.env.AWS_S3_BUCKET || 'N/A'}              ║
 ║  Allowed Origins: ${allowedOrigins.length} configured       ║
 ╚════════════════════════════════════════════╝
   `);

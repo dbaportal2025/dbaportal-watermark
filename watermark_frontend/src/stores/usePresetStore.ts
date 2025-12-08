@@ -57,6 +57,10 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
     const logoStore = useLogoStore.getState();
     const dateStore = useDateStore.getState();
 
+    console.log('=== Saving Preset ===');
+    console.log('Logo position from store:', logoStore.position);
+    console.log('Date position from store:', dateStore.position);
+
     const presetData: SettingsPresetInput = {
       name,
       logoPositionX: logoStore.position.x,
@@ -73,6 +77,8 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
       dateScale: dateStore.scale,
       dateOpacity: dateStore.opacity,
     };
+
+    console.log('Preset data to save:', presetData);
 
     set({ isLoading: true, error: null });
     try {
