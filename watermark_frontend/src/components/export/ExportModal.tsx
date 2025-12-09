@@ -223,6 +223,24 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
       const preloadedLogo = await loadLogoImage();
       const extension = settings.format === 'png' ? 'png' : 'jpg';
 
+      // 파일명 생성 헬퍼 함수
+      const generateFilename = (index: number, originalName: string): string => {
+        if (settings.filename) {
+          // 사용자 지정 파일명 사용
+          if (images.length === 1) {
+            return settings.filename + '.' + extension;
+          } else {
+            // 여러 장: 파일명, 파일명(1), 파일명(2)...
+            return index === 0
+              ? settings.filename + '.' + extension
+              : settings.filename + '(' + index + ').' + extension;
+          }
+        } else {
+          // 원본 파일명 사용
+          return originalName.replace(/\.[^/.]+$/, '') + '.' + extension;
+        }
+      };
+
       // 이미지가 1개일 때는 단일 파일로 다운로드
       if (images.length === 1) {
         const image = images[0];
@@ -231,8 +249,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
         const dataUrl = await exportSingleImageWithLogo(image, preloadedLogo);
         if (dataUrl) {
-          const originalName = image.name.replace(/\.[^/.]+$/, '');
-          const filename = originalName + settings.filenamePrefix + '.' + extension;
+          const filename = generateFilename(0, image.name);
 
           const link = document.createElement('a');
           link.href = dataUrl;
@@ -257,9 +274,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
         const dataUrl = await exportSingleImageWithLogo(image, preloadedLogo);
         if (dataUrl) {
-          // 원본 파일명에서 확장자 제거
-          const originalName = image.name.replace(/\.[^/.]+$/, '');
-          const filename = originalName + settings.filenamePrefix + '.' + extension;
+          const filename = generateFilename(i, image.name);
 
           // Data URL을 Blob으로 변환하여 ZIP에 추가
           const blob = dataUrlToBlob(dataUrl);
@@ -303,14 +318,22 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>파일명 접미어</Label>
+            <Label>파일명</Label>
             <Input
-              value={settings.filenamePrefix}
-              onChange={(e) => setSettings({ filenamePrefix: e.target.value })}
-              placeholder="예: _watermark"
+              value={settings.filename}
+              onChange={(e) => setSettings({ filename: e.target.value })}
+              placeholder="저장할 파일명 입력"
             />
             <p className="text-xs text-muted-foreground">
-              저장될 파일명: 원본파일명{settings.filenamePrefix}.{settings.format}
+              {settings.filename ? (
+                images.length > 1 ? (
+                  <>저장될 파일명: {settings.filename}.{settings.format}, {settings.filename}(1).{settings.format}, ...</>
+                ) : (
+                  <>저장될 파일명: {settings.filename}.{settings.format}</>
+                )
+              ) : (
+                <>파일명을 입력하지 않으면 원본 파일명이 사용됩니다</>
+              )}
             </p>
           </div>
 
@@ -365,7 +388,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             </div>
             <p className="text-xs text-muted-foreground">
               {images.length === 1 ? (
-                <>파일명: {images[0]?.name.replace(/\.[^/.]+$/, '')}{settings.filenamePrefix}.{settings.format}</>
+                <>파일명: {settings.filename || images[0]?.name.replace(/\.[^/.]+$/, '')}.{settings.format}</>
               ) : (
                 <>파일명: watermark_images.zip</>
               )}

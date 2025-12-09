@@ -75,7 +75,7 @@ export interface ToolSettings {
 
 export interface ExportSettings {
   folder: string;
-  filenamePrefix: string;
+  filename: string;
   format: 'jpg' | 'png';
   quality: number;
 }

@@ -13,7 +13,7 @@ interface ExportStore {
 export const useExportStore = create<ExportStore>((set) => ({
   settings: {
     folder: '',
-    filenamePrefix: '_watermark',
+    filename: '',
     format: 'png',
     quality: 90,
   },
