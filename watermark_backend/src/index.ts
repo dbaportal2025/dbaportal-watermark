@@ -41,8 +41,12 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files for uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Static files for uploads with CORS headers for cross-origin image loading
+app.use('/uploads', (_req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(__dirname, '../uploads')));
 
 // API Routes
 app.use('/api', routes);

@@ -2,6 +2,10 @@ import { Router, Request, Response } from 'express';
 import { uploadLogo } from '../config/multer';
 import { logoService } from '../services/logoService';
 import { ApiResponse } from '../types';
+import { getFileFromS3, getS3KeyFromUrl } from '../config/s3';
+import { USE_S3 } from '../config/multer';
+import path from 'path';
+import fs from 'fs';
 
 const router = Router();
 
@@ -136,6 +140,49 @@ router.delete('/:id', async (req: Request, res: Response) => {
       error: 'Failed to delete logo',
     };
     res.status(500).json(response);
+  }
+});
+
+// GET /api/logo/:id/file - Proxy logo file (bypasses S3 CORS issues)
+router.get('/:id/file', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const logo = await logoService.getLogoById(id);
+
+    if (!logo) {
+      res.status(404).json({ success: false, error: 'Logo not found' });
+      return;
+    }
+
+    if (USE_S3) {
+      const s3Key = getS3KeyFromUrl(logo.url);
+      if (!s3Key) {
+        res.status(404).json({ success: false, error: 'Invalid S3 URL' });
+        return;
+      }
+
+      const buffer = await getFileFromS3(s3Key);
+      if (!buffer) {
+        res.status(404).json({ success: false, error: 'File not found in S3' });
+        return;
+      }
+
+      const ext = path.extname(logo.filename).toLowerCase();
+      const contentType = ext === '.png' ? 'image/png' :
+                          ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+      res.setHeader('Content-Type', contentType);
+      res.send(buffer);
+    } else {
+      const filePath = path.join(__dirname, '../../uploads/logos', logo.filename);
+      if (!fs.existsSync(filePath)) {
+        res.status(404).json({ success: false, error: 'File not found' });
+        return;
+      }
+      res.sendFile(filePath);
+    }
+  } catch (error) {
+    console.error('Error serving logo file:', error);
+    res.status(500).json({ success: false, error: 'Failed to serve logo file' });
   }
 });
 

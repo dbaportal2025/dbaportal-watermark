@@ -96,6 +96,11 @@ export const logoService = {
     }
     return `${API_BASE_URL}${logo.url}`;
   },
+
+  // 로고 파일 프록시 URL (S3 CORS 우회용)
+  getLogoFileUrl: (logoId: string): string => {
+    return `${API_BASE_URL}/api/logo/${logoId}/file`;
+  },
 };
 
 export default logoService;
