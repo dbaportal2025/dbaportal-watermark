@@ -16,6 +16,7 @@ export const useExportStore = create<ExportStore>((set) => ({
     filename: '',
     format: 'png',
     quality: 90,
+    size: 'original',
   },
   isExporting: false,
   progress: 0,

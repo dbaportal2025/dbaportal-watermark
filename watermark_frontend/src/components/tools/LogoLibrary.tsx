@@ -211,7 +211,7 @@ export default function LogoLibrary() {
                       <SelectItem key={logo.id} value={logo.id}>
                         <div className="flex items-center gap-2">
                           <img
-                            src={logoService.getLogoUrl(logo)}
+                            src={logoService.getLogoFileUrl(logo.id)}
                             alt={logo.name}
                             className="w-5 h-5 object-contain"
                             onError={(e) => {
@@ -246,7 +246,7 @@ export default function LogoLibrary() {
         {currentLogo && (
           <div className="flex justify-center p-3 bg-muted/30 rounded-lg border">
             <img
-              src={logoService.getLogoUrl(currentLogo)}
+              src={logoService.getLogoFileUrl(currentLogo.id)}
               alt={currentLogo.name}
               className="max-h-16 object-contain"
               onError={(e) => {

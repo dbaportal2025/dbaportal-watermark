@@ -73,9 +73,12 @@ export interface ToolSettings {
   fontSize: number;
 }
 
+export type ExportSize = 'original' | '640x400' | '500x400';
+
 export interface ExportSettings {
   folder: string;
   filename: string;
   format: 'jpg' | 'png';
   quality: number;
+  size: ExportSize;
 }

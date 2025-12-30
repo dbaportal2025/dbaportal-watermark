@@ -93,32 +93,34 @@ router.get('/:id/file', async (req: Request, res: Response) => {
       return;
     }
 
-    if (USE_S3) {
-      const s3Key = getS3KeyFromUrl(logo.url);
-      if (!s3Key) {
-        res.status(404).json({ success: false, error: 'Invalid S3 URL' });
-        return;
-      }
+    const ext = path.extname(logo.filename).toLowerCase();
+    const contentType = ext === '.png' ? 'image/png' :
+                        ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
 
-      const buffer = await getFileFromS3(s3Key);
-      if (!buffer) {
-        res.status(404).json({ success: false, error: 'File not found in S3' });
-        return;
-      }
+    // 로컬 파일 경로 확인 (로컬 경로로 저장된 로고도 지원)
+    const localFilePath = path.join(__dirname, '../../uploads/logos', logo.filename);
 
-      const ext = path.extname(logo.filename).toLowerCase();
-      const contentType = ext === '.png' ? 'image/png' :
-                          ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
-      res.setHeader('Content-Type', contentType);
-      res.send(buffer);
-    } else {
-      const filePath = path.join(__dirname, '../../uploads/logos', logo.filename);
-      if (!fs.existsSync(filePath)) {
-        res.status(404).json({ success: false, error: 'File not found' });
-        return;
-      }
-      res.sendFile(filePath);
+    // 로컬 파일이 존재하면 로컬에서 서빙
+    if (fs.existsSync(localFilePath)) {
+      res.sendFile(localFilePath);
+      return;
     }
+
+    // S3에서 가져오기 시도
+    if (USE_S3 && logo.url.startsWith('http')) {
+      const s3Key = getS3KeyFromUrl(logo.url);
+      if (s3Key) {
+        const buffer = await getFileFromS3(s3Key);
+        if (buffer) {
+          res.setHeader('Content-Type', contentType);
+          res.send(buffer);
+          return;
+        }
+      }
+    }
+
+    // 둘 다 실패
+    res.status(404).json({ success: false, error: 'File not found' });
   } catch (error) {
     console.error('Error serving logo file:', error);
     res.status(500).json({ success: false, error: 'Failed to serve logo file' });

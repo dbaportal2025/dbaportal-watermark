@@ -63,6 +63,21 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
     });
   };
 
+  // 사이즈 설정에 따른 출력 크기 계산
+  const getExportDimensions = (originalWidth: number, originalHeight: number): { width: number; height: number; scale: number } => {
+    if (settings.size === 'original') {
+      return { width: originalWidth, height: originalHeight, scale: 1 };
+    }
+
+    const [targetWidth, targetHeight] = settings.size.split('x').map(Number);
+    const scale = Math.min(targetWidth / originalWidth, targetHeight / originalHeight);
+    return {
+      width: targetWidth,
+      height: targetHeight,
+      scale,
+    };
+  };
+
   const exportSingleImageWithLogo = async (
     imageFile: { id: string; url: string; name: string; width: number; height: number },
     preloadedLogo: HTMLImageElement | null
@@ -75,8 +90,16 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
         return;
       }
 
-      canvas.width = imageFile.width;
-      canvas.height = imageFile.height;
+      const { width: exportWidth, height: exportHeight } = getExportDimensions(imageFile.width, imageFile.height);
+      canvas.width = exportWidth;
+      canvas.height = exportHeight;
+
+      // 리사이즈할 때 이미지를 중앙에 배치하기 위한 오프셋 계산
+      const imgScale = Math.min(exportWidth / imageFile.width, exportHeight / imageFile.height);
+      const scaledImgWidth = imageFile.width * imgScale;
+      const scaledImgHeight = imageFile.height * imgScale;
+      const offsetX = (exportWidth - scaledImgWidth) / 2;
+      const offsetY = (exportHeight - scaledImgHeight) / 2;
 
       const mainImg = new Image();
 
@@ -86,17 +109,22 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
       };
 
       mainImg.onload = () => {
-        ctx.drawImage(mainImg, 0, 0, imageFile.width, imageFile.height);
+        // 배경을 흰색으로 채우기 (이미지가 캔버스보다 작을 경우)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, exportWidth, exportHeight);
+
+        // 리사이즈된 이미지 그리기
+        ctx.drawImage(mainImg, offsetX, offsetY, scaledImgWidth, scaledImgHeight);
 
         // 미리 로드된 로고 이미지 사용 - 이미지 너비 기준 (logoScale=1.0 이면 이미지 너비와 동일)
         if (preloadedLogo && logo) {
           ctx.globalAlpha = logoOpacity;
-          const logoX = logoPosition.x * imageFile.width;
-          const logoY = logoPosition.y * imageFile.height;
+          const logoX = offsetX + logoPosition.x * scaledImgWidth;
+          const logoY = offsetY + logoPosition.y * scaledImgHeight;
           // 로고 가로세로 비율 유지
           const logoAspectRatio = preloadedLogo.height / preloadedLogo.width;
           // 로고 너비 = 이미지 너비 * logoScale (100% = 이미지 너비와 동일)
-          const logoW = imageFile.width * logoScale;
+          const logoW = scaledImgWidth * logoScale;
           const logoH = logoW * logoAspectRatio;
           ctx.drawImage(
             preloadedLogo,
@@ -111,11 +139,11 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
         // 날짜 텍스트 그리기 - 5글자(22.03) 기준으로 폰트 크기 계산 (dateScale=1.0 이면 5글자가 이미지 너비를 채움)
         if (dateText && font) {
           ctx.globalAlpha = dateOpacity;
-          const scaledFontSize = imageFile.width * dateScale / 3;
+          const scaledFontSize = scaledImgWidth * dateScale / 3;
           ctx.font = buildFontString(scaledFontSize, font.family);
           ctx.fillStyle = font.color;
-          const dateX = datePosition.x * imageFile.width;
-          const dateY = datePosition.y * imageFile.height;
+          const dateX = offsetX + datePosition.x * scaledImgWidth;
+          const dateY = offsetY + datePosition.y * scaledImgHeight;
           ctx.fillText(dateText, dateX, dateY + scaledFontSize);
           ctx.globalAlpha = 1;
         }
@@ -124,21 +152,21 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
         const imageAnnotations = getAnnotations(imageFile.id);
         imageAnnotations.forEach((annotation) => {
           ctx.strokeStyle = annotation.style.color;
-          ctx.lineWidth = annotation.style.thickness;
+          ctx.lineWidth = annotation.style.thickness * imgScale;
           ctx.fillStyle = annotation.style.color;
 
           if (annotation.style.lineStyle === 'dashed') {
-            ctx.setLineDash([10, 5]);
+            ctx.setLineDash([10 * imgScale, 5 * imgScale]);
           } else {
             ctx.setLineDash([]);
           }
 
           if (annotation.type === 'box' || annotation.type === 'dashed-box') {
-            const radius = annotation.style.borderRadius;
-            const ax = annotation.position.x;
-            const ay = annotation.position.y;
-            const aw = annotation.size.width;
-            const ah = annotation.size.height;
+            const radius = annotation.style.borderRadius * imgScale;
+            const ax = offsetX + annotation.position.x * imgScale;
+            const ay = offsetY + annotation.position.y * imgScale;
+            const aw = annotation.size.width * imgScale;
+            const ah = annotation.size.height * imgScale;
 
             if (radius > 0) {
               ctx.beginPath();
@@ -158,18 +186,20 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             }
           } else if (annotation.type === 'arrow' && annotation.points) {
             const pts = annotation.points;
-            const dx = pts[2];
-            const dy = pts[3];
-            const endX = annotation.position.x + dx;
-            const endY = annotation.position.y + dy;
+            const dx = pts[2] * imgScale;
+            const dy = pts[3] * imgScale;
+            const startX = offsetX + annotation.position.x * imgScale;
+            const startY = offsetY + annotation.position.y * imgScale;
+            const endX = startX + dx;
+            const endY = startY + dy;
 
             ctx.beginPath();
-            ctx.moveTo(annotation.position.x, annotation.position.y);
+            ctx.moveTo(startX, startY);
             ctx.lineTo(endX, endY);
             ctx.stroke();
 
             const angle = Math.atan2(dy, dx);
-            const headLength = 15;
+            const headLength = 15 * imgScale;
             ctx.beginPath();
             ctx.moveTo(endX, endY);
             ctx.lineTo(
@@ -184,8 +214,9 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             ctx.stroke();
           } else if (annotation.type === 'text' && annotation.text) {
             ctx.setLineDash([]);
-            ctx.font = '16px sans-serif';
-            ctx.fillText(annotation.text, annotation.position.x, annotation.position.y + 16);
+            const fontSize = 16 * imgScale;
+            ctx.font = fontSize + 'px sans-serif';
+            ctx.fillText(annotation.text, offsetX + annotation.position.x * imgScale, offsetY + annotation.position.y * imgScale + fontSize);
           }
         });
 
@@ -338,6 +369,23 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
           </div>
 
           <div className="space-y-2">
+            <Label>사이즈</Label>
+            <Select
+              value={settings.size}
+              onValueChange={(value: 'original' | '640x400' | '500x400') => setSettings({ size: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="original">원본 크기</SelectItem>
+                <SelectItem value="640x400">640 x 400 px</SelectItem>
+                <SelectItem value="500x400">500 x 400 px</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label>포맷</Label>
             <Select
               value={settings.format}
@@ -392,6 +440,9 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
               ) : (
                 <>파일명: watermark_images.zip</>
               )}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              사이즈: {settings.size === 'original' ? '원본 크기' : settings.size.replace('x', ' x ') + ' px'}
             </p>
           </div>
 

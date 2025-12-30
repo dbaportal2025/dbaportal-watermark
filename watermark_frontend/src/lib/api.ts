@@ -20,7 +20,17 @@ async function fetchApi<T>(
       },
     });
 
-    const data = await response.json();
+    // HTML 에러 페이지를 받았을 경우 안전하게 처리
+    const text = await response.text();
+    let data: ApiResponse<T>;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        error: `서버 오류 (${response.status}): JSON 응답이 아닙니다`,
+      };
+    }
 
     if (!response.ok) {
       return {
