@@ -54,3 +54,18 @@ export interface ApiResponse<T = unknown> {
   error?: string;
   message?: string;
 }
+
+export interface SyncAccountRequest {
+  email: string;
+  name: string;
+  provider: string;
+  userId: string;
+  unifiedToken: string;
+  clinicId?: number;
+}
+
+export interface SyncAccountResponse {
+  success: true;
+  userId: string;
+  message: string;
+}

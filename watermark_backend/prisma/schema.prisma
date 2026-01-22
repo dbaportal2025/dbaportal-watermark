@@ -82,3 +82,17 @@ model ProcessedImage {
 
   @@map("processed_images")
 }
+
+model User {
+  id           Int       @id @default(autoincrement())
+  userId       Int?      @map("user_id")
+  email        String?   @db.VarChar(200)
+  name         String?   @db.VarChar(50)
+  provider     String?   @db.VarChar(20)
+  clinicId     Int?      @map("clinic_id")
+  unifiedToken String?   @db.Text @map("unified_token")
+  createdAt    DateTime? @map("created_at")
+  updatedAt    DateTime? @map("updated_at")
+
+  @@map("users")
+}
