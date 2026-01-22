@@ -40,7 +40,7 @@ export function removeHashFromUrl(): void {
  */
 export async function getUserInfo(token: string): Promise<UserInfo | null> {
   try {
-    const response = await api.getWithToken<{ data: UserInfo }>('/api/auth/me', token);
+    const response = await api.getWithToken<UserInfo>('/api/auth/me', token);
     
     if (response.success && response.data) {
       return response.data;
