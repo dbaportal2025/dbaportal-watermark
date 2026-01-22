@@ -21,6 +21,8 @@ async function fetchApi<T>(
     // API 키 추가
     if (API_KEY) {
       headers['x-api-key'] = API_KEY;
+    } else {
+      console.warn('NEXT_PUBLIC_API_KEY is not set. API requests may fail.');
     }
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {

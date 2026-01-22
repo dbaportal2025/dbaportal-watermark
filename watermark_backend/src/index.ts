@@ -20,6 +20,7 @@ const allowedOrigins = [
   'https://watermark-steel.vercel.app',
   'https://watermark.koco.me',
   'http://watermark.koco.me',
+  'https://watermark.dba-portal.kr',
   FRONTEND_URL,
 ].filter((origin, index, self) => self.indexOf(origin) === index); // Remove duplicates
 
