@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { UserInfo } from '../types';
 
 export interface SyncAccountRequest {
   email: string;
@@ -68,6 +69,34 @@ export const authService = {
       success: true,
       userId: user.userId?.toString() || '',
       message: '계정 동기화 완료',
+    };
+  },
+
+  /**
+   * unifiedToken으로 사용자 정보 조회
+   * @param unifiedToken 통합 토큰
+   * @returns 사용자 정보
+   */
+  async getUserByToken(unifiedToken: string): Promise<UserInfo | null> {
+    const user = await prisma.user.findFirst({
+      where: {
+        unifiedToken: unifiedToken,
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      userId: user.userId,
+      email: user.email,
+      name: user.name,
+      provider: user.provider,
+      clinicId: user.clinicId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
   },
 };

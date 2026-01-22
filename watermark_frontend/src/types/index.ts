@@ -82,3 +82,14 @@ export interface ExportSettings {
   quality: number;
   size: ExportSize;
 }
+
+export interface UserInfo {
+  id: number;
+  userId: number | null;
+  email: string | null;
+  name: string | null;
+  provider: string | null;
+  clinicId: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}

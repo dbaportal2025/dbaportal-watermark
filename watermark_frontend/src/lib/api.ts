@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || '';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -12,12 +13,19 @@ async function fetchApi<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    // API 키 추가
+    if (API_KEY) {
+      headers['x-api-key'] = API_KEY;
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     });
 
     // HTML 에러 페이지를 받았을 경우 안전하게 처리
@@ -65,6 +73,15 @@ export const api = {
     }),
 
   delete: <T>(endpoint: string) => fetchApi<T>(endpoint, { method: 'DELETE' }),
+
+  // unifiedToken을 포함한 GET 요청
+  getWithToken: <T>(endpoint: string, token: string) =>
+    fetchApi<T>(endpoint, {
+      method: 'GET',
+      headers: {
+        'x-unified-token': token,
+      },
+    }),
 };
 
 export default api;
