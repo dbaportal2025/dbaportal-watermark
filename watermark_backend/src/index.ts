@@ -8,6 +8,8 @@ dotenv.config();
 
 import routes from './routes';
 import { USE_S3 } from './config/multer';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -48,6 +50,12 @@ app.use('/uploads', (_req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
 }, express.static(path.join(__dirname, '../uploads')));
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Watermark API Documentation',
+}));
 
 // API Routes
 app.use('/api', routes);

@@ -6,27 +6,49 @@ import { ApiResponse, SyncAccountRequest, SyncAccountResponse, UserInfoResponse 
 const router = Router();
 
 /**
- * POST /api/auth/sync-account
- * 서브도메인 계정 동기화 API
- * 
- * Headers:
- *   x-api-key: API 키
- * 
- * Request Body:
- *   {
- *     "email": "user@example.com",
- *     "name": "홍길동",
- *     "provider": "google",
- *     "userId": "uuid-string",
- *     "unifiedToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- *   }
- * 
- * Response:
- *   {
- *     "success": true,
- *     "userId": "uuid-string",
- *     "message": "계정 동기화 완료"
- *   }
+ * @swagger
+ * /api/auth/sync-account:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: 서브도메인 계정 동기화
+ *     description: 이메일 기준으로 사용자 계정을 찾거나 생성하여 동기화합니다.
+ *     security:
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SyncAccountRequest'
+ *           examples:
+ *             example1:
+ *               value:
+ *                 email: "user@example.com"
+ *                 name: "홍길동"
+ *                 provider: "google"
+ *                 userId: "uuid-string"
+ *                 unifiedToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 clinicId: 456
+ *     responses:
+ *       200:
+ *         description: 계정 동기화 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SyncAccountResponse'
+ *       400:
+ *         description: 잘못된 요청 (필수 필드 누락 또는 이메일 형식 오류)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/sync-account', apiKeyAuth, async (req: Request, res: Response) => {
   try {
@@ -92,28 +114,90 @@ router.post('/sync-account', apiKeyAuth, async (req: Request, res: Response) => 
 });
 
 /**
- * GET /api/auth/me
- * unifiedToken으로 사용자 정보 조회 API
- * 
- * Headers:
- *   x-unified-token: 통합 토큰
- *   또는
- *   Authorization: Bearer {unifiedToken}
- * 
- * Response:
- *   {
- *     "success": true,
- *     "data": {
- *       "id": 1,
- *       "userId": 123,
- *       "email": "user@example.com",
- *       "name": "홍길동",
- *       "provider": "google",
- *       "clinicId": 456,
- *       "createdAt": "2024-01-01T00:00:00.000Z",
- *       "updatedAt": "2024-01-01T00:00:00.000Z"
- *     }
- *   }
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     tags:
+ *       - Authentication
+ *     summary: unifiedToken으로 사용자 정보 조회
+ *     description: |
+ *       unifiedToken을 사용하여 현재 사용자의 정보를 조회합니다.
+ *       토큰은 다음 세 가지 방법 중 하나로 전달할 수 있습니다:
+ *       1. x-unified-token 헤더
+ *       2. Authorization Bearer 헤더
+ *       3. token 쿼리 파라미터
+ *     security:
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: x-unified-token
+ *         description: 통합 토큰 (헤더 방식)
+ *         required: false
+ *         schema:
+ *           type: string
+ *           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *       - in: header
+ *         name: Authorization
+ *         description: Bearer 토큰 (Authorization 헤더 방식)
+ *         required: false
+ *         schema:
+ *           type: string
+ *           example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *       - in: query
+ *         name: token
+ *         description: 통합 토큰 (쿼리 파라미터 방식)
+ *         required: false
+ *         schema:
+ *           type: string
+ *           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *     responses:
+ *       200:
+ *         description: 사용자 정보 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserInfoResponse'
+ *             examples:
+ *               success:
+ *                 value:
+ *                   success: true
+ *                   data:
+ *                     id: 1
+ *                     userId: 123
+ *                     email: "user@example.com"
+ *                     name: "홍길동"
+ *                     provider: "google"
+ *                     clinicId: 456
+ *                     createdAt: "2024-01-01T00:00:00.000Z"
+ *                     updatedAt: "2024-01-01T00:00:00.000Z"
+ *       401:
+ *         description: 토큰이 제공되지 않음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               missingToken:
+ *                 value:
+ *                   success: false
+ *                   error: "Missing unifiedToken. Provide it in x-unified-token header, Authorization Bearer header, or token query parameter"
+ *       404:
+ *         description: 사용자를 찾을 수 없거나 토큰이 유효하지 않음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               userNotFound:
+ *                 value:
+ *                   success: false
+ *                   error: "User not found or invalid token"
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/me', apiKeyAuth, async (req: Request, res: Response) => {
   try {
